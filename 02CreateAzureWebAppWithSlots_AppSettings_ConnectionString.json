@@ -1,0 +1,196 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "appServiceName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "appServiceSkuName": {
+      "type": "string",
+      "defaultValue": "F1",
+      "allowedValues": [
+        "F1",
+        "D1",
+        "B1",
+        "B2",
+        "B3",
+        "S1",
+        "S2",
+        "S3",
+        "P1",
+        "P2",
+        "P3",
+        "P4"
+      ],
+      "metadata": {
+        "description": "To know about plans pricing tier and capacity check this article at https://azure.microsoft.com/en-us/pricing/details/app-service/"
+      }
+    },
+    "webAppName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "stagingSlotName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "webApplicationSettings": {
+      "type": "object"
+    }
+  },
+  "variables": {
+    "siteProperties": {
+      "netFrameworkVersion": "v4.7", // Defines .NET framework version 
+      "use32BitWorkerProcess": false, // 64-bit platform 
+      "webSocketsEnabled": true, 
+      "alwaysOn": true, // Always On
+      "requestTracingEnabled": true, // Failed request tracing
+      "httpLoggingEnabled": true, // IIS logs (Web server logging)
+      "logsDirectorySizeLimit": 40, // 40 MB limit for IIS logs 
+      "detailedErrorLoggingEnabled": true, // Detailed error messages  
+      "remoteDebuggingEnabled": true, // enables remote debugging 
+      "remoteDebuggingVersion": "VS2017",
+      "defaultDocuments": [
+        "index.html"
+      ]
+    }
+  },
+  "resources": [
+    {
+      "name": "[parameters('appServiceName')]",
+      "type": "Microsoft.Web/serverfarms",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2015-08-01",
+      "sku": {
+        "name": "[parameters('appServiceSkuName')]"
+      },
+      "dependsOn": [ ],
+      "tags": {
+        "displayName": "appService"
+      },
+      "properties": {
+        "name": "[parameters('appServiceName')]",
+        "numberOfWorkers": 1
+      }
+    },
+    {
+      "name": "[parameters('webAppName')]",
+      "type": "Microsoft.Web/sites",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2015-08-01",
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/serverfarms', parameters('appServiceName'))]"
+      ],
+      "tags": {
+        "[concat('hidden-related:', resourceId('Microsoft.Web/serverfarms', parameters('appServiceName')))]": "Resource",
+        "displayName": "webApp"
+      },
+      "properties": {
+        "name": "[parameters('webAppName')]",
+        "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('appServiceName'))]"
+      },
+      "resources": [
+        {
+          "apiVersion": "2015-08-01",
+          "name": "web",
+          "type": "config",
+          "dependsOn": [
+            "[resourceId('Microsoft.Web/Sites', parameters('webAppName'))]"
+          ],
+          "properties": "[variables('siteProperties')]"
+        },
+        {
+          "apiVersion": "2015-08-01",
+          "location": "[resourceGroup().location]",
+          "type": "config",
+          "name": "connectionstrings",
+          "dependsOn": [
+            "[concat('Microsoft.Web/sites/', parameters('webAppName'))]"
+          ],
+          "properties": "[parameters('webApplicationSettings').connectionStrings.prod]"
+        },
+        {
+          "apiVersion": "2015-08-01",
+          "location": "[resourceGroup().location]",
+          "type": "config",
+          "name": "appsettings",
+          "dependsOn": [
+            "[concat('Microsoft.Web/sites/', parameters('webAppName'))]"
+          ],
+          "properties": "[parameters('webApplicationSettings').appSettings.prod]"
+        },
+        {
+          "apiVersion": "2015-08-01",
+          "name": "slotconfignames",
+          "type": "config",
+          "dependsOn": [
+            "[resourceId('Microsoft.Web/Sites', parameters('webAppName'))]"
+          ],
+          "properties": {
+            "appSettingNames": "[ parameters('webApplicationSettings').appSettings.stickySettings ]",
+            "connectionStringNames": "[ parameters('webApplicationSettings').connectionStrings.stickySettings ]"
+          }
+        },
+        {
+          "apiVersion": "2015-08-01",
+          "name": "[parameters('stagingSlotName')]",
+          "type": "slots",
+          "tags": {
+            "displayName": "webAppSlots"
+          },
+          "location": "[resourceGroup().location]",
+          "dependsOn": [
+            "[resourceId('Microsoft.Web/Sites', parameters('webAppName'))]"
+          ],
+          "properties": {
+          },
+          "resources": [
+            {
+              "apiVersion": "2015-08-01",
+              "name": "web",
+              "type": "config",
+              "dependsOn": [
+                "[resourceId('Microsoft.Web/Sites/Slots', parameters('webAppName'),parameters('stagingSlotName'))]"
+              ],
+              "properties": "[variables('siteProperties')]"
+            },
+            {
+              "apiVersion": "2015-08-01",
+              "location": "[resourceGroup().location]",
+              "type": "config",
+              "name": "connectionstrings",
+              "dependsOn": [
+                "[resourceId('Microsoft.Web/Sites/Slots', parameters('webAppName'),parameters('stagingSlotName'))]"
+              ],
+              "properties": "[parameters('webApplicationSettings').connectionStrings.prod]"
+            },
+            {
+              "apiVersion": "2015-08-01",
+              "location": "[resourceGroup().location]",
+              "type": "config",
+              "name": "appsettings",
+              "dependsOn": [
+                "[resourceId('Microsoft.Web/Sites/Slots', parameters('webAppName'),parameters('stagingSlotName'))]"
+              ],
+              "properties": "[parameters('webApplicationSettings').appSettings.prod]"
+            },
+            {
+              "apiVersion": "2015-08-01",
+              "name": "slotconfignames",
+              "type": "config",
+              "dependsOn": [
+                "[resourceId('Microsoft.Web/Sites/Slots', parameters('webAppName'),parameters('stagingSlotName'))]"
+              ],
+              "properties": {
+                "appSettingNames": "[ parameters('webApplicationSettings').appSettings.stickySettings ]",
+                "connectionStringNames": "[ parameters('webApplicationSettings').connectionStrings.stickySettings ]"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "outputs": {}
+  }
