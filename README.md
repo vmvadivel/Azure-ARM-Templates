@@ -1,5 +1,5 @@
 # AzureARMTemplates
-ARM Templates to automate those repeatable tasks with ease in Azure. If you intend to test it out in your non-production environment follow this steps:
+ARM Templates to automate those repeatable tasks with ease in Azure. If you intend to test it out in your non-production environment follow these steps:
 
 1. Goto your Azure Portal and search for "Template Deployment"
 2. Choose "Build your own template in the editor"
